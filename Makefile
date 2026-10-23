@@ -1,7 +1,7 @@
 COMPOSE = docker compose
 EXEC = $(COMPOSE) exec salon
 
-.PHONY: help up down restart logs sh typecheck projet
+.PHONY: help up down restart logs mock mock-logs sh typecheck projet
 
 .DEFAULT_GOAL := help
 
@@ -20,6 +20,12 @@ restart: ## Redémarre le conteneur du Salon
 
 logs: ## Affiche les logs du serveur
 	$(COMPOSE) logs -f salon
+
+mock: ## Démarre le faux serveur OpenAI
+	$(COMPOSE) up -d mock
+
+mock-logs: ## Affiche les logs du faux serveur
+	$(COMPOSE) logs -f mock
 
 sh: ## Ouvre un shell dans le conteneur
 	$(EXEC) bash

@@ -19,6 +19,8 @@ et les prochains lots.
 ```bash
 make help
 make typecheck
+make mock
+make mock-logs
 make logs
 make sh
 make down
@@ -26,3 +28,6 @@ make down
 
 Les dépendances npm sont installées dans le conteneur et dans le volume Docker
 `salon_node_modules`. Rien n'est installé dans l'environnement local.
+
+Pour travailler sans facturation, décommentez `OPENAI_BASE_URL=http://mock:4010/v1`
+dans `.env`, puis lancez `make up` et `make mock`.

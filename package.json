@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "mock": "tsx mock/mock-openai.ts",
     "projet": "tsx server.ts",
     "typecheck": "tsc --noEmit"
   },

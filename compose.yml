@@ -10,12 +10,31 @@ services:
       - "${PORT:-3001}:${PORT:-3001}"
     environment:
       PORT: ${PORT:-3001}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
     env_file:
       - path: .env
         required: false
     command: sh -c "npm install --no-package-lock && exec sleep infinity"
     stdin_open: true
     tty: true
+
+  mock:
+    image: node:22
+    container_name: le-salon-mock
+    working_dir: /app
+    volumes:
+      - .:/app
+      - salon_node_modules:/app/node_modules
+    ports:
+      - "${MOCK_PORT:-4010}:4010"
+    environment:
+      MOCK_PORT: 4010
+      MOCK_FAIL_RATE: ${MOCK_FAIL_RATE:-0}
+      MOCK_RPM: ${MOCK_RPM:-60}
+      MOCK_STREAM_ERROR_RATE: ${MOCK_STREAM_ERROR_RATE:-0}
+    command: sh -c "npm install --no-package-lock && exec npm run mock"
+    depends_on:
+      - salon
 
 volumes:
   salon_node_modules:
