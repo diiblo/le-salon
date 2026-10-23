@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Le Salon</title>
+  <style>
+    :root { font: 15px/1.5 system-ui, sans-serif; color: #1b1f2a; background: #f6f3ee; }
+    body { margin: 0; min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
+    header, form { padding: 12px 18px; background: #1b1f2a; color: white; }
+    header { display: flex; gap: 18px; align-items: center; } header strong { font: 20px Georgia, serif; }
+    #users { flex: 1; opacity: .8; } #queue { display: none; background: #e8702a; padding: 2px 10px; border-radius: 99px; }
+    main { padding: 16px 18px; overflow: auto; display: flex; flex-direction: column; gap: 7px; }
+    .line { max-width: 80%; } .from { font-weight: 600; margin-right: 6px; } .salon { color: #6b7080; font-style: italic; }
+    .ia { max-width: 80%; padding: 8px 12px; background: white; border-left: 4px solid #e8702a; border-radius: 6px; white-space: pre-wrap; }
+    .meta { display: block; color: #6b7080; font-size: 12px; margin-top: 4px; }
+    form { display: flex; gap: 8px; background: white; border-top: 1px solid #e2ddd4; } input { flex: 1; padding: 10px; font: inherit; }
+    button { padding: 10px 16px; background: #1b1f2a; color: white; border: 0; border-radius: 8px; }
+    .err { color: #b33; }
+  </style>
+</head>
+<body>
+  <header><strong>Le Salon</strong><span id="users"></span><span id="queue"></span></header>
+  <main id="log"></main>
+  <form id="form"><input id="input" placeholder="Choisissez un pseudo…" autocomplete="off"><button>Envoyer</button></form>
+  <script type="module">
+    const $ = (selector) => document.querySelector(selector);
+    const log = $("#log");
+    const bubbles = new Map();
+    let ws; let pseudo = null;
+    const add = (node) => { log.append(node); log.scrollTop = log.scrollHeight; return node; };
+    const text = (tag, className, value) => { const node = document.createElement(tag); node.className = className; node.textContent = value; return node; };
+    function said(from, value) { const node = add(text("div", from === "salon" ? "line salon" : "line", "")); node.append(text("span", "from", from), document.createTextNode(value)); }
+    function connect() {
+      ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+      ws.onopen = () => { if (pseudo) ws.send(JSON.stringify({ type: "join", pseudo })); };
+      ws.onclose = () => { said("salon", "Connexion perdue, rechargez la page."); };
+      ws.onmessage = ({ data }) => {
+        const message = JSON.parse(data);
+        if (message.type === "said") {
+          if (message.from === "ia") { const bubble = add(text("div", "ia", "")); bubble.append(text("span", "from", "ia"), document.createTextNode(message.text)); }
+          else said(message.from, message.text);
+        } else if (message.type === "presence") $("#users").textContent = message.users.join(" · ");
+        else if (message.type === "ia_start") { const bubble = add(text("div", "ia", "")); bubble.append(text("span", "from", "ia")); bubble.dataset.for = message.for; bubbles.set(message.id, bubble); }
+        else if (message.type === "ia_delta") { const bubble = bubbles.get(message.id); if (bubble) bubble.append(document.createTextNode(message.text)); }
+        else if (message.type === "ia_done") { const bubble = bubbles.get(message.id); if (bubble) bubble.append(text("span", "meta", `pour ${bubble.dataset.for}${message.tokens ? ` · ${message.tokens} tokens` : ""}${message.cancelled ? " · interrompu" : ""}`)); bubbles.delete(message.id); }
+        else if (message.type === "error") add(text("div", "err", `⚠️ ${message.message}`));
+      };
+    }
+    $("#form").onsubmit = (event) => {
+      event.preventDefault(); const value = $("#input").value.trim();
+      if (!value || !ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!pseudo) { pseudo = value; ws.send(JSON.stringify({ type: "join", pseudo })); $("#input").placeholder = "Votre message…"; }
+      else ws.send(JSON.stringify({ type: "say", text: value }));
+      $("#input").value = "";
+    };
+    connect();
+  </script>
+</body>
+</html>
