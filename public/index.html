@@ -14,6 +14,9 @@
     .line { max-width: 80%; } .from { font-weight: 600; margin-right: 6px; } .salon { color: #6b7080; font-style: italic; }
     .ia { max-width: 80%; padding: 8px 12px; background: white; border-left: 4px solid #e8702a; border-radius: 6px; white-space: pre-wrap; }
     .meta { display: block; color: #6b7080; font-size: 12px; margin-top: 4px; }
+    .card { max-width: 80%; padding: 12px 16px; background: white; border: 1px solid #e2ddd4; border-radius: 10px; }
+    .card h3 { margin: 0 0 6px; font: 18px Georgia, serif; }
+    .card ul { margin: 4px 0 8px 18px; padding: 0; }
     form { display: flex; gap: 8px; background: white; border-top: 1px solid #e2ddd4; } input { flex: 1; padding: 10px; font: inherit; }
     button { padding: 10px 16px; background: #1b1f2a; color: white; border: 0; border-radius: 8px; }
     .err { color: #b33; }
@@ -31,6 +34,16 @@
     const add = (node) => { log.append(node); log.scrollTop = log.scrollHeight; return node; };
     const text = (tag, className, value) => { const node = document.createElement(tag); node.className = className; node.textContent = value; return node; };
     function said(from, value) { const node = add(text("div", from === "salon" ? "line salon" : "line", "")); node.append(text("span", "from", from), document.createTextNode(value)); }
+    function summary(data) {
+      const card = add(text("div", "card", ""));
+      card.append(text("h3", "", "Synthèse du salon"));
+      for (const [title, values] of [["Sujets", data.sujets], ["Décisions", data.decisions], ["Actions", data.actions.map((action) => `${action.qui} → ${action.quoi}`)]]) {
+        card.append(text("b", "", title));
+        const list = document.createElement("ul");
+        (values.length ? values : ["—"]).forEach((value) => list.append(text("li", "", value)));
+        card.append(list);
+      }
+    }
     function connect() {
       ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
       ws.onopen = () => { if (pseudo) ws.send(JSON.stringify({ type: "join", pseudo })); };
@@ -45,6 +58,7 @@
         else if (message.type === "ia_delta") { const bubble = bubbles.get(message.id); if (bubble) bubble.append(document.createTextNode(message.text)); }
         else if (message.type === "ia_done") { const bubble = bubbles.get(message.id); if (bubble) bubble.append(text("span", "meta", `pour ${bubble.dataset.for}${message.tokens ? ` · ${message.tokens} tokens` : ""}${message.cancelled ? " · interrompu" : ""}`)); bubbles.delete(message.id); }
         else if (message.type === "ia_queue") { const queue = $("#queue"); queue.style.display = message.size ? "inline" : "none"; queue.textContent = `IA : ${message.size} en file`; }
+        else if (message.type === "summary") summary(message.data);
         else if (message.type === "error") add(text("div", "err", `⚠️ ${message.message}`));
       };
     }
