@@ -19,6 +19,7 @@ type ServerMsg =
   | { type: "ia_start"; id: string; for: string }
   | { type: "ia_delta"; id: string; text: string }
   | { type: "ia_done"; id: string; cancelled?: boolean; tokens?: number }
+  | { type: "ia_queue"; size: number }
   | { type: "error"; message: string };
 
 type Client = WebSocket & { pseudo?: string };
@@ -26,6 +27,9 @@ type Job = { id: string; asker: string; ctrl: AbortController };
 
 const room: Line[] = [];
 const wss = new WebSocketServer({ noServer: true });
+const queue: Job[] = [];
+let running: Job | null = null;
+const lastAsk = new Map<string, number>();
 
 function broadcast(message: ServerMsg) {
   const data = JSON.stringify(message);
@@ -92,7 +96,35 @@ async function answer(job: Job) {
 }
 
 function ask(asker: string) {
-  void answer({ id: crypto.randomUUID().slice(0, 8), asker, ctrl: new AbortController() });
+  const last = lastAsk.get(asker) ?? 0;
+  if (Date.now() - last < 10_000) {
+    post("salon", `${asker}, patience : une demande IA toutes les 10 secondes.`);
+    return;
+  }
+  lastAsk.set(asker, Date.now());
+  queue.push({ id: crypto.randomUUID().slice(0, 8), asker, ctrl: new AbortController() });
+  broadcast({ type: "ia_queue", size: queue.length });
+  void pump();
+}
+
+async function pump() {
+  if (running || queue.length === 0) return;
+  running = queue.shift()!;
+  try {
+    await answer(running);
+  } finally {
+    running = null;
+    broadcast({ type: "ia_queue", size: queue.length });
+    void pump();
+  }
+}
+
+function stop(pseudo: string) {
+  if (running?.asker === pseudo) {
+    running.ctrl.abort();
+    return;
+  }
+  post("salon", `${pseudo}, seul le demandeur de la réponse en cours peut l'arrêter.`);
 }
 
 wss.on("connection", (ws: Client) => {
@@ -110,6 +142,7 @@ wss.on("connection", (ws: Client) => {
       return presence();
     }
     if (!ws.pseudo) return sendTo(ws, { type: "error", message: "choisissez d'abord un pseudo" });
+    if (message.text === "/stop") return stop(ws.pseudo);
     post(ws.pseudo, message.text);
     if (/(^|\s)@ia\b/i.test(message.text)) ask(ws.pseudo);
   });

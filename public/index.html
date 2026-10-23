@@ -44,6 +44,7 @@
         else if (message.type === "ia_start") { const bubble = add(text("div", "ia", "")); bubble.append(text("span", "from", "ia")); bubble.dataset.for = message.for; bubbles.set(message.id, bubble); }
         else if (message.type === "ia_delta") { const bubble = bubbles.get(message.id); if (bubble) bubble.append(document.createTextNode(message.text)); }
         else if (message.type === "ia_done") { const bubble = bubbles.get(message.id); if (bubble) bubble.append(text("span", "meta", `pour ${bubble.dataset.for}${message.tokens ? ` · ${message.tokens} tokens` : ""}${message.cancelled ? " · interrompu" : ""}`)); bubbles.delete(message.id); }
+        else if (message.type === "ia_queue") { const queue = $("#queue"); queue.style.display = message.size ? "inline" : "none"; queue.textContent = `IA : ${message.size} en file`; }
         else if (message.type === "error") add(text("div", "err", `⚠️ ${message.message}`));
       };
     }
